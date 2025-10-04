@@ -43,7 +43,7 @@ export const CONFIG = {
     minDelayMs: 60000,          // 1 minute
     maxDelayMs: 300000,         // 5 minutes
     gasThresholdGwei: 50,       // Skip turns if gas is above this
-    minBalanceEth: '0.005',     // Warn if wallet balance drops below this
+    minBalanceEth: '0.000001',     // Warn if wallet balance drops below this
     maxRetries: 3,              // Max transaction retries
     reportInterval: 25,         // Generate a performance report every 25 actions
   },
