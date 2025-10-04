@@ -2,6 +2,7 @@
 // FINAL STRICT-COMPLIANT VERSION
 
 import { CONFIG } from '../config';
+
 import { AIService } from '../features/ai/AIService';
 import { AIDecision, WalletPersonality } from '../features/ai/types';
 import { BlockchainService } from '../features/blockchain/BlockchainService';
