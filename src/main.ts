@@ -1,6 +1,6 @@
 // src/main.ts
 
-import { BotEngine } from './src/core/BotEngine';
+import { BotEngine } from './core/BotEngine';
 
 /**
  * The main entry point for the application.
