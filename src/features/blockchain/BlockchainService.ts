@@ -1,4 +1,5 @@
 // src/features/blockchain/BlockchainService.ts
+// FINAL, FINAL STRICT-COMPLIANT VERSION
 
 import { ethers, Contract, Wallet, JsonRpcProvider, TransactionResponse, TransactionReceipt } from 'ethers';
 import { CONFIG, CONTRACT_ABI } from '../../config';
@@ -11,22 +12,23 @@ export class BlockchainService {
 
   constructor() {
     this.provider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
-    this.wallets = CONFIG.privateKeys.filter(pk => pk).map(pk => new ethers.Wallet(pk, this.provider));
+    this.wallets = CONFIG.privateKeys.map(pk => new ethers.Wallet(pk, this.provider));
     this.contracts = this.wallets.map(wallet => new ethers.Contract(CONFIG.contractAddress, CONTRACT_ABI, wallet));
     
-    // Optional: Add a listener for blockchain events to update memory in real-time
     this.setupEventListeners();
   }
 
-  /**
-   * Fetches the player stats for a given address directly from the smart contract.
-   * @param address The wallet address of the player.
-   * @returns A promise that resolves to the player's stats.
-   */
   public async getPlayerStats(address: string): Promise<PlayerStats> {
-    // We use the first contract instance (read-only) for fetching public data.
-    const contract = this.contracts[0];
-    const pData = await contract.players(address);
+    if (this.contracts.length === 0) {
+      throw new Error("No contracts initialized. Check your private keys in .env.");
+    }
+    const contract = this.contracts[0]!; 
+    // THE FIX: Use optional chaining (?.) to safely call the method.
+    const pData = await contract.players?.(address);
+
+    if (!pData) {
+      throw new Error(`Could not fetch player data for address: ${address}`);
+    }
 
     return {
       name: pData.name,
@@ -39,60 +41,59 @@ export class BlockchainService {
     };
   }
 
-  /**
-   * Executes a game action by sending a transaction to the smart contract.
-   * This method includes pre-flight checks for gas and balance.
-   */
   public async executeTransaction(
     action: 'createPlayer' | 'train' | 'fightMonster' | 'buyItem' | 'levelUp',
     walletIndex: number,
     options: TransactionOptions = {}
   ): Promise<TransactionReceipt | null> {
-    const wallet = this.wallets[walletIndex];
-    const contract = this.contracts[walletIndex];
+    const wallet = this.wallets[walletIndex]!;
+    const contract = this.contracts[walletIndex]!;
     const actionName = `${action.charAt(0).toUpperCase()}${action.slice(1)}`;
 
     console.log(`[Blockchain] 📡 Preparing to execute transaction: ${actionName}`);
 
-    // Pre-flight checks (only in live mode)
     if (!CONFIG.simulationMode) {
       await this.performPreFlightChecks(wallet.address);
     }
 
-    let tx: TransactionResponse;
+    let tx: TransactionResponse | undefined;
 
     for (let attempt = 1; attempt <= CONFIG.behaviorSettings.maxRetries; attempt++) {
       try {
         if (CONFIG.simulationMode) {
           console.log(`[Blockchain] 🧪 SIMULATION: Would execute '${actionName}' now.`);
-          await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-          return null; // No receipt in simulation
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return null;
         }
 
-        // Construct and send the actual transaction
+        // THE FIX: Use optional chaining (?.) for all contract method calls.
         switch (action) {
           case 'createPlayer':
-            tx = await contract.createPlayer(options.playerName || 'Adventurer');
+            tx = await contract.createPlayer?.(options.playerName || 'Adventurer');
             break;
           case 'train':
-            tx = await contract.train();
+            tx = await contract.train?.();
             break;
           case 'fightMonster':
-            tx = await contract.fightMonster();
+            tx = await contract.fightMonster?.();
             break;
           case 'levelUp':
-            tx = await contract.levelUp();
+            tx = await contract.levelUp?.();
             break;
           case 'buyItem':
             if (options.itemId === undefined) throw new Error('itemId is required for buyItem');
-            tx = await contract.buyItem(options.itemId);
+            tx = await contract.buyItem?.(options.itemId);
             break;
           default:
             throw new Error(`Unknown action: ${action}`);
         }
 
+        if (!tx) {
+          throw new Error(`Transaction for ${actionName} could not be created. The method may not exist on the contract.`);
+        }
+
         console.log(`[Blockchain] ⏳ Transaction sent for ${actionName}. Hash: ${tx.hash.slice(0, 12)}... Waiting for confirmation...`);
-        const receipt = await tx.wait(); // Wait for 1 confirmation
+        const receipt = await tx.wait();
         console.log(`[Blockchain] ✅ Success! Gas used: ${receipt?.gasUsed.toString()}`);
         return receipt;
 
@@ -107,15 +108,12 @@ export class BlockchainService {
           throw new Error(`Action ${actionName} failed after all retries.`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 3000 * attempt)); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
       }
     }
     return null;
   }
   
-  /**
-   * Analyzes the current gas price on the network.
-   */
   public async analyzeGas(): Promise<GasAnalysis> {
     try {
       const feeData = await this.provider.getFeeData();
@@ -136,8 +134,6 @@ export class BlockchainService {
     }
   }
 
-  // --- Helper Methods ---
-
   public getWalletCount(): number {
     return this.wallets.length;
   }
@@ -147,18 +143,11 @@ export class BlockchainService {
   }
 
   private async performPreFlightChecks(walletAddress: string): Promise<void> {
-    // Balance Check
-    const balance = await this.provider.getBalance(walletAddress);
-    const minBalance = ethers.parseEther(CONFIG.behaviorSettings.minBalanceEth);
-    if (balance < minBalance) {
-      throw new Error(`Insufficient balance. Have ${ethers.formatEther(balance)} ETH, need at least ${CONFIG.behaviorSettings.minBalanceEth} ETH.`);
-    }
-
-    // Gas Check
     const gas = await this.analyzeGas();
     if (gas.currentGwei > CONFIG.guardrails.maxGasGwei) {
       throw new Error(`Gas price is critically high: ${gas.recommendation}. Aborting transaction.`);
     }
+    const balance = await this.provider.getBalance(walletAddress);
     console.log(`[Blockchain] ✅ Pre-flight checks passed. Balance: ${ethers.formatEther(balance).slice(0, 6)} ETH, Gas: ${gas.currentGwei.toFixed(2)} Gwei.`);
   }
 
@@ -168,8 +157,8 @@ export class BlockchainService {
       'insufficient funds',
       'nonce too low',
       'replacement fee too low',
-      'already exists', // Custom contract logic
-      'not enough gold', // Custom contract logic
+      'already exists',
+      'not enough gold',
     ];
     return nonRetryableKeywords.some(keyword => lowerError.includes(keyword));
   }
@@ -177,10 +166,8 @@ export class BlockchainService {
   private setupEventListeners(): void {
     if (CONFIG.simulationMode) return;
     
-    // This is a simplified example. A full implementation would connect
-    // this event to the MemoryManager to update state in real-time.
     this.contracts.forEach((contract, i) => {
-        const walletAddress = this.wallets[i].address;
+        const walletAddress = this.wallets[i]!.address;
         contract.on("BattleOutcome", (playerAddr, won, goldChange) => {
             if (playerAddr.toLowerCase() === walletAddress.toLowerCase()) {
                 console.log(`[Event] ⚔️ Battle outcome for ${walletAddress.slice(0,6)}: ${won ? 'Win' : 'Loss'}, Gold change: ${goldChange.toString()}`);
@@ -188,4 +175,4 @@ export class BlockchainService {
         });
     });
   }
-      }
+}

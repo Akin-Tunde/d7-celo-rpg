@@ -1,4 +1,5 @@
 // src/features/gameLogic/BattleIntelligence.ts
+// FINAL CORRECTED VERSION
 
 import { CONFIG } from '../../config';
 import { WalletPersonality } from '../ai/types';
@@ -79,6 +80,8 @@ export class BattleIntelligence {
     return {
       itemId: item.id,
       itemName: item.name,
+      // FIX #1: The 'cost' property is now correctly included in the return object.
+      cost: item.cost,
       isOwned,
       isAffordable,
       expectedWinRateIncrease,
@@ -135,7 +138,8 @@ Factors: ${prediction.contributingFactors.join(', ')}
 ${analyses.map(item => 
     item.isOwned 
       ? `[✓] ${item.itemName} (Owned)`
-      : `[${item.id}] ${item.itemName} (${item.cost}g) - ROI Score: ${item.roiScore.toFixed(2)} - ${item.isAffordable ? 'CAN AFFORD' : 'CANNOT AFFORD'}`
+      // FIX #2: Changed 'item.id' to the correct 'item.itemId' to match the interface.
+      : `[${item.itemId}] ${item.itemName} (${item.cost}g) - ROI Score: ${item.roiScore.toFixed(2)} - ${item.isAffordable ? 'CAN AFFORD' : 'CANNOT AFFORD'}`
 ).join('\n')}
 
 --- DECISION ---

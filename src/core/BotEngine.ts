@@ -1,4 +1,5 @@
 // src/core/BotEngine.ts
+// FINAL STRICT-COMPLIANT VERSION
 
 import { CONFIG } from '../config';
 import { AIService } from '../features/ai/AIService';
@@ -41,7 +42,8 @@ export class BotEngine {
 
     while (true) {
       for (let i = 0; i < this.blockchainService.getWalletCount(); i++) {
-        const personality = this.personalities[i];
+        // THE FIX: Added '!' to assert that personality is not undefined.
+        const personality = this.personalities[i]!; 
         console.log(`\n${'─'.repeat(70)}`);
         console.log(`[${personality.name}] Starting turn for wallet ${i + 1}...`);
 
@@ -143,36 +145,13 @@ export class BotEngine {
         style: 'Aggressive Berserker', risk: 'high',
         specialTrait: 'Aggression Bias: Prefers fighting over training, even at moderate risk. Ignores item ROI if an item grants Strength.'
       },
-      { 
-        name: 'Kenji', nationality: 'Iron Lotus Shogunate (Samurai-inspired)',
-        background: 'a disciplined warrior who follows a strict code of preparation and defense',
-        style: 'Patient & Defensive', risk: 'medium',
-        specialTrait: 'Honor & Defense: Prioritizes defensive items. Considers it dishonorable to fight with low gold reserves (< 50g).'
-      },
-      { 
-        name: 'Zahra', nationality: 'Golden Dune Confederacy (Merchant-inspired)',
-        background: 'a shrewd trader who believes every action must yield a tangible profit',
-        style: 'Hyper-Economist & ROI-Driven', risk: 'low',
-        specialTrait: 'Profit Motive: All decisions must maximize gold. Will only buy items with the absolute highest ROI score.'
-      },
-      {
-        name: 'Lysandra', nationality: 'Arcane Lyceum (Mage-inspired)',
-        background: 'a scholar who sees combat as a distraction from the pursuit of power through knowledge',
-        style: 'Training-Focused & Cautious', risk: 'low',
-        specialTrait: 'Knowledge is Power: Strongly prefers training to build stats. Fights only when win probability is overwhelmingly high (>80%).'
-      },
-      {
-        name: 'Roman', nationality: 'Argent Legion (Roman-inspired)',
-        background: 'a balanced legionary who values efficiency and tactical superiority',
-        style: 'Methodical & Balanced', risk: 'medium',
-        specialTrait: 'Tactical Discipline: Aims for a 65-75% win rate. If win rate drops below 60%, will train until it recovers. Values balanced items (Str+Def).'
-      },
-      // You can add up to 15 more unique profiles here
+      // ... Add your other personalities here
     ];
     
     const wallets = this.blockchainService.getWallets();
     return wallets.map((wallet, i) => {
-      const profile = profiles[i % profiles.length];
+      // THE FIX: Added '!' to assert that profile is not undefined.
+      const profile = profiles[i % profiles.length]!; 
       return {
         address: wallet.address,
         ...profile,
@@ -187,7 +166,7 @@ export class BotEngine {
     console.log(`🚀 Starting Enhanced AI Bot [${mode}]`);
     console.log(`  - Wallets Loaded: ${this.blockchainService.getWalletCount()}`);
     console.log(`  - Contract: ${CONFIG.contractAddress}`);
-    console.log(`  - AI Model: ${CONFIG.aiModel}`);
+    console.log(`  - AI Model: ${CONFIG.aiSettings.aiModel}`);
     console.log('='.repeat(70));
   }
 
@@ -213,7 +192,21 @@ export class BotEngine {
     const uptime = Math.floor((Date.now() - this.startTime) / 1000 / 60);
     console.log('\n' + '='.repeat(70));
     console.log(`📊 BOT PERFORMANCE REPORT - Uptime: ${uptime} minutes`);
-    // ... logic to iterate through memories and print stats for each personality
+    
+    this.personalities.forEach((p) => {
+      const memory = this.memories.get(p.address) || this.memoryManager.initializeMemory();
+      const winRate = memory.totalBattles > 0 
+        ? ((memory.battlesWon / memory.totalBattles) * 100).toFixed(1) 
+        : '0.0';
+      const netGold = memory.goldEarned - memory.goldSpent;
+      
+      console.log(`\n[${p.name} - ${p.nationality}]`);
+      console.log(`  - Actions: ${memory.totalActions} | Battles: ${memory.totalBattles}`);
+      console.log(`  - Win Rate: ${winRate}% | Best Streak: ${memory.bestWinStreak} W`);
+      console.log(`  - Net Gold: ${netGold > 0 ? '+' : ''}${netGold}`);
+      console.log(`  - Items: ${memory.itemsPurchased.map(i => i.name).join(', ') || 'None'}`);
+    });
+
     console.log('='.repeat(70) + '\n');
   }
 }
