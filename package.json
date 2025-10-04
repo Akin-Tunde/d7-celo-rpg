@@ -1,5 +1,5 @@
 {
-  "name": "enhanced-ai-bot",
+  "name": "-bot",
   "version": "2.0.1",
   "description": "Production-Ready AI Bot with a modular structure",
   "main": "dist/main.js",
